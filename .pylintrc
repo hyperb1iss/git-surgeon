@@ -1,0 +1,10 @@
+[MESSAGES CONTROL]
+disable=
+    import-error,  # Disable import errors for test dependencies
+    protected-access,  # Allow protected access in tests
+    redefined-outer-name,  # Allow fixture redefinition in tests
+    too-few-public-methods,  # Allow classes with few public methods (like config classes)
+    too-many-arguments  # Allow CLI commands with many arguments
+
+[FORMAT]
+max-line-length=100 
