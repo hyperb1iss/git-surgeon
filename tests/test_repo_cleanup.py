@@ -2,8 +2,8 @@
 
 from pathlib import Path
 import pytest
-from git_nuke.core import GitRepo
-from git_nuke.operations.repo_cleanup import RepoCleanup
+from git_surgeon.core import GitRepo
+from git_surgeon.operations.repo_cleanup import RepoCleanup
 
 
 @pytest.fixture

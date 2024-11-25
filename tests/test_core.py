@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from git_nuke.core import GitRepo
+from git_surgeon.core import GitRepo
 
 
 def test_git_repo_initialization(temp_git_repo):

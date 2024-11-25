@@ -1,4 +1,4 @@
-"""Operations package for git-nuke functionality."""
+"""Operations package for git-surgeon functionality."""
 
 from .file_purger import FilePurger
 from .history_truncator import HistoryTruncator

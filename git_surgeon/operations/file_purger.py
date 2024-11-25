@@ -6,7 +6,7 @@ from typing import Optional
 
 from git import Commit
 
-from git_nuke.core import GitRepo
+from git_surgeon.core import GitRepo
 
 
 class FilePurger:

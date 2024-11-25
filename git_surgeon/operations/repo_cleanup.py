@@ -6,7 +6,7 @@ import subprocess
 from pathlib import Path
 from typing import Optional
 
-from git_nuke.core import GitRepo
+from git_surgeon.core import GitRepo
 
 
 class RepoCleanup:

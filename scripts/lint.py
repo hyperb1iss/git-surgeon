@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""Lint script for the Git-Nuke project."""
+"""Lint script for the Git-surgeon project."""
 
 import subprocess
 import sys
@@ -11,13 +11,13 @@ def run_lint():
     print("Running linting checks...")
 
     pylint_result = subprocess.run(
-        ["pylint", "git_nuke", "tests", "scripts"],
+        ["pylint", "git_surgeon", "tests", "scripts"],
         capture_output=True,
         text=True,
         check=False,
     )
     mypy_result = subprocess.run(
-        ["mypy", "git_nuke"], capture_output=True, text=True, check=False
+        ["mypy", "git_surgeon"], capture_output=True, text=True, check=False
     )
 
     if pylint_result.returncode != 0:

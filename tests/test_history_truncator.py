@@ -1,8 +1,8 @@
 """Tests for the history truncation functionality."""
 
 import pytest
-from git_nuke.core import GitRepo
-from git_nuke.operations.history_truncator import HistoryTruncator
+from git_surgeon.core import GitRepo
+from git_surgeon.operations.history_truncator import HistoryTruncator
 
 
 @pytest.fixture

@@ -1,4 +1,4 @@
-"""Test fixtures and configuration for git-nuke tests."""
+"""Test fixtures and configuration for git-surgeon tests."""
 
 import pytest
 from git import Repo

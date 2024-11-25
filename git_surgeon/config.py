@@ -1,4 +1,4 @@
-"""Configuration settings and defaults for git-nuke."""
+"""Configuration settings and defaults for git-surgeon."""
 
 from pathlib import Path
 from typing import Optional
@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 
 class Settings(BaseModel):
-    """Configuration settings for git-nuke operations."""
+    """Configuration settings for git-surgeon operations."""
 
     # Default backup settings
     create_backup: bool = True

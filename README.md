@@ -1,4 +1,4 @@
-# git-nuke 🧨
+# git-surgeon 🧨
 
 A powerful tool for safely performing destructive operations on git repositories.
 

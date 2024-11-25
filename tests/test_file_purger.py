@@ -3,8 +3,8 @@
 import pytest
 from git import Repo
 
-from git_nuke.core import GitRepo
-from git_nuke.operations.file_purger import FilePurger
+from git_surgeon.core import GitRepo
+from git_surgeon.operations.file_purger import FilePurger
 
 
 @pytest.fixture

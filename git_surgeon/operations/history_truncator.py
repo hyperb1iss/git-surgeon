@@ -6,7 +6,7 @@ from typing import Union
 
 import git
 
-from git_nuke.core import GitRepo
+from git_surgeon.core import GitRepo
 
 
 class HistoryTruncator:

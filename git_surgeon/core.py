@@ -1,4 +1,4 @@
-"""Core functionality for git-nuke operations."""
+"""Core functionality for git-surgeon operations."""
 
 import shutil
 import subprocess

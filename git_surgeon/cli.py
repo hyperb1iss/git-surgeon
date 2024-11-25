@@ -1,4 +1,4 @@
-"""Command-line interface for git-nuke operations."""
+"""Command-line interface for git-surgeon operations."""
 
 from pathlib import Path
 from typing import Optional
@@ -8,9 +8,9 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.traceback import install
 
-from git_nuke.config import Settings
-from git_nuke.core import GitRepo
-from git_nuke.operations import FilePurger, HistoryTruncator, RepoCleanup
+from git_surgeon.config import Settings
+from git_surgeon.core import GitRepo
+from git_surgeon.operations import FilePurger, HistoryTruncator, RepoCleanup
 
 # Install rich traceback handler
 install(show_locals=True)
