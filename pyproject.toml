@@ -2,9 +2,10 @@
 name = "git-surgeon"
 version = "0.1.0"
 description = "Safely delete things permanently from git repositories"
-authors = ["Your Name <you@example.com>"]
-license = "MIT"
+authors = ["Stefanie Jane <stef@hyperbliss.tech>"]
+license = "GPL-2.0"
 readme = "README.md"
+include = ["git_surgeon/**/*"]
 packages = [{ include = "git_surgeon" }]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -18,7 +19,7 @@ classifiers = [
 
 [tool.poetry.dependencies]
 python = "^3.9"
-typer = { extras = ["all"], version = "0.13.10" }
+typer = { extras = ["all"], version = "0.13.1" }
 rich = "^13.7.0"
 gitpython = "^3.1.43"
 pydantic = "^2.5.0"
@@ -39,6 +40,8 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
 git-surgeon = "git_surgeon.cli:app"
+test = "pytest:main"
+lint = "scripts.lint:run_lint"
 
 [tool.black]
 line-length = 88
