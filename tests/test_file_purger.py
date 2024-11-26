@@ -44,7 +44,6 @@ def test_calculate_size_impact(repo_with_sensitive_files):
     size = purger.calculate_size_impact()
     assert size > 0
 
-@pytest.mark.skip(reason="Implementation pending")
 def test_execute_purge(repo_with_sensitive_files):
     """Test actual file purge operation."""
     repo = GitRepo(repo_with_sensitive_files)
