@@ -25,13 +25,13 @@ pydantic = "^2.5.0"
 git-filter-repo = "^2.38.0"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^7.4.3"
-pytest-cov = "^4.1.0"
+pytest = "^8.3.3"
+pytest-cov = "^6.0.0"
 black = "^24.10.0"
 isort = "^5.12.0"
 mypy = "^1.6.1"
-types-setuptools = "^75.5.0.20241121"
-ruff = "^0.1.6"
+types-setuptools = "^75.6.0.20241126"
+ruff = "^0.8.0"
 
 [build-system]
 requires = ["poetry-core"]
@@ -89,7 +89,6 @@ select = [
     "UP",  # pyupgrade
     "N",   # pep8-naming
     "SIM", # flake8-simplify
-    "TCH", # flake8-type-checking
     "RUF", # Ruff-specific rules
 ]
 ignore = [
