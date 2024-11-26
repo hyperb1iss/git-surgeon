@@ -7,9 +7,11 @@ from pathlib import Path
 from typing import Optional
 
 import git
+from git import Commit
 from rich.console import Console
 
 console = Console()
+
 
 class GitRepo:
     """Wrapper around GitPython repository with additional safety features."""
@@ -34,9 +36,7 @@ class GitRepo:
         # Verify git-filter-repo is available
         try:
             subprocess.run(
-                ['git-filter-repo', '--version'],
-                capture_output=True,
-                check=True
+                ["git-filter-repo", "--version"], capture_output=True, check=True
             )
         except (subprocess.CalledProcessError, FileNotFoundError):
             console.print(
@@ -87,15 +87,17 @@ class GitRepo:
         """Get current branch name."""
         return self.repo.active_branch.name
 
-    def get_all_commits(self) -> list[git.Commit]:
+    def get_all_commits(self) -> list[Commit]:
         """Get all commits in repository."""
         return list(self.repo.iter_commits("--all"))
 
     def get_modified_files(self, commit: git.Commit) -> set[str]:
         """Get all files modified in a commit."""
-        return {
-            item.a_path for item in commit.diff(commit.parents[0])
-        } if commit.parents else set()
+        return (
+            {item.a_path for item in commit.diff(commit.parents[0])}
+            if commit.parents
+            else set()
+        )
 
     def get_file_size(self, path: str, commit: Optional[git.Commit] = None) -> int:
         """Get size of file at specific commit.
@@ -116,7 +118,7 @@ class GitRepo:
 
     def get_branches(self) -> list[str]:
         """Get list of all branch names."""
-        return [b.name for b in self.repo.branches]
+        return [b.name for b in self.repo.heads]
 
     def has_remote(self) -> bool:
         """Check if repository has any remotes configured."""

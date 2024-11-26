@@ -27,7 +27,7 @@ class FilePurger:
                 cwd=self.repo.path,
                 capture_output=True,
                 text=True,
-                check=True
+                check=True,
             )
 
             all_files = result.stdout.splitlines()
@@ -65,12 +65,10 @@ class FilePurger:
         return sum(match.stat().st_size for match in self.find_matches())
 
     def execute(
-        self,
-        branches: Optional[list[str]] = None,
-        preserve_recent: bool = False
+        self, branches: Optional[list[str]] = None, preserve_recent: bool = False
     ) -> None:
         """Execute the purge operation.
-        
+
         Args:
             branches: Optional list of branches to process. If None, processes all branches.
             preserve_recent: If True, preserves files in the most recent commit.
@@ -81,122 +79,128 @@ class FilePurger:
 
         # Get relative paths for all matches
         rel_paths = [str(match.relative_to(self.repo.path)) for match in matches]
-        paths_arg = ' '.join(f'"{path}"' for path in rel_paths)
+        paths_arg = " ".join(f'"{path}"' for path in rel_paths)
 
         try:
             # Ensure we're on a clean state
             subprocess.run(
-                ['git', 'stash', '--include-untracked'],
+                ["git", "stash", "--include-untracked"],
                 cwd=self.repo.path,
                 check=True,
                 capture_output=True,
-                text=True
+                text=True,
             )
 
             # First remove from the index
             subprocess.run(
-                ['git', 'rm', '-rf', '--cached', '--ignore-unmatch'] + rel_paths,
+                ["git", "rm", "-rf", "--cached", "--ignore-unmatch", *rel_paths],
                 cwd=self.repo.path,
                 check=True,
                 capture_output=True,
-                text=True
+                text=True,
             )
 
             # Commit the removal
             subprocess.run(
-                ['git', 'commit', '--allow-empty', '-m', 'Remove sensitive files'],
+                ["git", "commit", "--allow-empty", "-m", "Remove sensitive files"],
                 cwd=self.repo.path,
                 check=True,
                 capture_output=True,
-                text=True
+                text=True,
             )
 
             # Then filter the branch history
-            filter_cmd = f'git rm -rf --cached --ignore-unmatch {paths_arg}'
+            filter_cmd = f"git rm -rf --cached --ignore-unmatch {paths_arg}"
             filter_branch_cmd = [
-                'git', 'filter-branch', '--force',
-                '--index-filter', filter_cmd,
-                '--prune-empty', '--tag-name-filter', 'cat',
-                '--', '--all'
+                "git",
+                "filter-branch",
+                "--force",
+                "--index-filter",
+                filter_cmd,
+                "--prune-empty",
+                "--tag-name-filter",
+                "cat",
+                "--",
+                "--all",
             ]
 
             if preserve_recent:
                 # If preserving recent, only filter commits before HEAD
-                filter_branch_cmd.extend(['HEAD^..'])
-            
+                filter_branch_cmd.extend(["HEAD^.."])
+
             if branches:
                 # If specific branches are specified, only filter those
-                filter_branch_cmd[filter_branch_cmd.index('--all')] = ' '.join(branches)
+                filter_branch_cmd[filter_branch_cmd.index("--all")] = " ".join(branches)
 
             subprocess.run(
                 filter_branch_cmd,
                 cwd=self.repo.path,
                 check=True,
                 capture_output=True,
-                text=True
+                text=True,
             )
 
             # Remove the original refs to allow garbage collection
             subprocess.run(
-                ['git', 'for-each-ref', '--format=%(refname)', 'refs/original/'],
+                ["git", "for-each-ref", "--format=%(refname)", "refs/original/"],
                 cwd=self.repo.path,
                 check=True,
                 capture_output=True,
-                text=True
+                text=True,
             ).stdout.splitlines()
 
             for ref in subprocess.run(
-                ['git', 'for-each-ref', '--format=%(refname)', 'refs/original/'],
+                ["git", "for-each-ref", "--format=%(refname)", "refs/original/"],
                 cwd=self.repo.path,
                 check=True,
                 capture_output=True,
-                text=True
+                text=True,
             ).stdout.splitlines():
                 subprocess.run(
-                    ['git', 'update-ref', '-d', ref],
+                    ["git", "update-ref", "-d", ref],
                     cwd=self.repo.path,
                     check=True,
                     capture_output=True,
-                    text=True
+                    text=True,
                 )
 
             # Reset the working directory to match the new HEAD
             subprocess.run(
-                ['git', 'reset', '--hard'],
+                ["git", "reset", "--hard"],
                 cwd=self.repo.path,
                 check=True,
-                capture_output=True
+                capture_output=True,
             )
 
             # Clean up untracked files
             subprocess.run(
-                ['git', 'clean', '-fd'],
+                ["git", "clean", "-fd"],
                 cwd=self.repo.path,
                 check=True,
-                capture_output=True
+                capture_output=True,
             )
 
             # Clean up repository and remove old objects
             subprocess.run(
-                ['git', 'reflog', 'expire', '--expire=now', '--all'],
+                ["git", "reflog", "expire", "--expire=now", "--all"],
                 cwd=self.repo.path,
                 check=True,
-                capture_output=True
+                capture_output=True,
             )
             subprocess.run(
-                ['git', 'gc', '--prune=now', '--aggressive'],
+                ["git", "gc", "--prune=now", "--aggressive"],
                 cwd=self.repo.path,
                 check=True,
-                capture_output=True
+                capture_output=True,
             )
 
             # Try to restore stashed changes if any
             subprocess.run(
-                ['git', 'stash', 'pop'],
+                ["git", "stash", "pop"],
                 cwd=self.repo.path,
                 check=False,  # Don't fail if there was nothing to pop
                 capture_output=True,
-                text=True
+                text=True,
             )
 
         except subprocess.CalledProcessError as e:

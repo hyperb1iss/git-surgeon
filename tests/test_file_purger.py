@@ -27,6 +27,7 @@ def repo_with_sensitive_files(temp_git_repo):
 
     return repo_path
 
+
 def test_find_matches(repo_with_sensitive_files):
     """Test finding files matching pattern."""
     repo = GitRepo(repo_with_sensitive_files)
@@ -36,6 +37,7 @@ def test_find_matches(repo_with_sensitive_files):
     assert len(matches) == 2
     assert any(m.name == ".env" for m in matches)
 
+
 def test_calculate_size_impact(repo_with_sensitive_files):
     """Test calculation of size impact."""
     repo = GitRepo(repo_with_sensitive_files)
@@ -43,6 +45,7 @@ def test_calculate_size_impact(repo_with_sensitive_files):
 
     size = purger.calculate_size_impact()
     assert size > 0
+
 
 def test_execute_purge(repo_with_sensitive_files):
     """Test actual file purge operation."""
