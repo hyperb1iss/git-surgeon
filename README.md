@@ -5,8 +5,8 @@
 [![Build Status](https://img.shields.io/github/actions/workflow/status/hyperb1iss/git-surgeon/cicd.yml?branch=main&logo=github&logoColor=white)](https://github.com/hyperb1iss/git-surgeon/actions/workflows/cicd.yml)
 [![PyPI version](https://img.shields.io/pypi/v/git-surgeon.svg?logo=python&logoColor=white)](https://pypi.org/project/git-surgeon/)
 [![Python Versions](https://img.shields.io/pypi/pyversions/git-surgeon?logo=python&logoColor=white)](https://pypi.org/project/git-surgeon/)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg?logo=opensource)](LICENSE)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![License](https://img.shields.io/badge/license-GPLv2-blue.svg?logo=gnu)](LICENSE)
+[![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg?logo=ruff)](https://github.com/astral-sh/ruff)
 [![Type Checking: mypy](https://img.shields.io/badge/type%20checking-mypy-blue?logo=python)](https://github.com/python/mypy)
 
 Git Surgeon is a powerful command-line tool for safely performing complex and potentially destructive operations on git repositories. Think of it as a precise scalpel for your git history! 🔪
@@ -92,6 +92,38 @@ git-surgeon clean --sensitive-data
 # Cleanup with custom patterns
 git-surgeon clean --patterns "**/*.zip,**/*.jar"
 ```
+
+#### Author Rewriting
+
+```bash
+# Rewrite a single author
+git-surgeon rewrite-authors --old "Old Name <old@email.com>" --new "New Name <new@email.com>"
+
+# Rewrite multiple authors using a mapping file
+git-surgeon rewrite-authors --mapping-file authors.json
+
+# Update both author and committer information
+git-surgeon rewrite-authors --mapping-file authors.json --update-committer
+
+# Example authors.json format:
+[
+  {
+    "old": "Old Name <old@email.com>",
+    "new": "New Name <new@email.com>"
+  },
+  {
+    "old": "Another Old <another@old.com>",
+    "new": "Another New <another@new.com>"
+  }
+]
+```
+
+The author rewriting feature uses `git-filter-repo` under the hood to safely rewrite Git history, updating author (and optionally committer) information across all commits. This is useful for:
+
+- Updating incorrect email addresses
+- Consolidating multiple author identities
+- Fixing typos in author names
+- Updating organizational email addresses
 
 ## 🛡️ Safety Features
 
