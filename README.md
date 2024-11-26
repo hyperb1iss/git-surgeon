@@ -41,7 +41,7 @@ poetry install
 
 ```bash
 # Remove all .env files from history
-git-surgeon remove-file "**/.env" --backup
+git-surgeon remove "**/.env" --backup
 
 # Truncate history to keep only recent commits
 git-surgeon truncate --keep-recent 100
@@ -58,13 +58,13 @@ git-surgeon clean --size-threshold 50MB
 
 ```bash
 # Remove specific files from history
-git-surgeon remove-file "path/to/file" --backup
+git-surgeon remove "path/to/file" --backup
 
 # Remove using glob patterns
-git-surgeon remove-file "**/*.log" --preserve-recent
+git-surgeon remove "**/*.log" --preserve-recent
 
 # Remove from specific branches
-git-surgeon remove-file "secrets.json" --branches main,develop
+git-surgeon remove "secrets.json" --branches main,develop
 ```
 
 #### History Truncation
@@ -110,7 +110,7 @@ Preview changes before applying them:
 
 ```bash
 # See what would be removed
-git-surgeon remove-file "*.log" --dry-run
+git-surgeon remove "*.log" --dry-run
 
 # Preview truncation impact
 git-surgeon truncate --before 2023-01-01 --dry-run
@@ -131,7 +131,7 @@ Git Surgeon performs multiple safety checks:
 
 ```bash
 # Remove all .env files
-git-surgeon remove-file "**/.env"
+git-surgeon remove "**/.env"
 
 # Clean up API keys and tokens
 git-surgeon clean --sensitive-data
@@ -141,7 +141,7 @@ git-surgeon clean --sensitive-data
 
 ```bash
 # Remove old logs and temp files
-git-surgeon remove-file "**/*.log,**/*.tmp"
+git-surgeon remove "**/*.log,**/*.tmp"
 
 # Clean up large build artifacts
 git-surgeon clean --size-threshold 100MB

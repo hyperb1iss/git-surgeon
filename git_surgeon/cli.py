@@ -33,7 +33,7 @@ def validate_repo(repo_path: Path) -> GitRepo:
         raise typer.Exit(1) from e
 
 @app.command()
-def file(
+def remove(
     pattern: str = typer.Argument(..., help="File pattern to remove (e.g., '**/.env')"),
     repo_path: Optional[Path] = None,
     dry_run: bool = False,

@@ -20,8 +20,8 @@ Git Surgeon follows these key principles:
 Remove files or patterns from repository history while maintaining integrity.
 
 ```bash
-git surgeon remove-file "**/.env" --backup --preserve-recent
-git surgeon remove-file "*.log" --before 2023-01-01
+git surgeon remove "**/.env" --backup --preserve-recent
+git surgeon remove "*.log" --before 2023-01-01
 ```
 
 **Capabilities:**
