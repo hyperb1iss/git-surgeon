@@ -16,20 +16,25 @@ Git Surgeon is a powerful command-line tool for safely performing complex and po
 - 🧹 **File Purging**: Remove sensitive files or patterns from entire git history
 - ✂️ **History Truncation**: Safely truncate repository history while preserving state
 - 🧰 **Repository Cleanup**: Remove large files and sensitive data
+- 👥 **Author Rewriting**: Update author and committer information across history
 - 🔒 **Safety First**: Automatic backups and dry-run capabilities
 - 🎯 **Precise Control**: Fine-grained control over operations
-- 🚀 **User-Friendly**: Clear progress indicators and error messages
-- 💡 **Smart Detection**: Identifies potential issues before they happen
 
 ## 🚀 Installation
 
+Git Surgeon requires Python 3.9 or higher and depends on the git-filter-repo tool for some operations. You can install it using either pip or Poetry.
+
 ### Using pip
+
+For most users, installing via pip is the recommended method:
 
 ```bash
 pip install git-surgeon
 ```
 
 ### Using Poetry (Development)
+
+For developers who want to contribute or modify the code, Poetry provides better dependency management and isolation:
 
 ```bash
 git clone https://github.com/hyperb1iss/git-surgeon
@@ -38,6 +43,8 @@ poetry install
 ```
 
 ## 🎯 Quick Start
+
+Git Surgeon provides several core operations for managing your repository's history. Here are some common use cases:
 
 ```bash
 # Remove all .env files from history
@@ -56,6 +63,8 @@ git-surgeon clean --size-threshold 50MB
 
 #### Remove Files
 
+The remove command helps you permanently delete files from your repository's history. This is particularly useful for removing sensitive data that was accidentally committed:
+
 ```bash
 # Remove specific files from history
 git-surgeon remove "path/to/file" --backup
@@ -68,6 +77,8 @@ git-surgeon remove "secrets.json" --branches main,develop
 ```
 
 #### History Truncation
+
+The truncate command allows you to manage your repository's history by keeping only the commits you need. This can help reduce repository size and simplify history:
 
 ```bash
 # Keep only recent history
@@ -82,6 +93,8 @@ git-surgeon truncate --after abc123
 
 #### Repository Cleanup
 
+The cleanup command helps you maintain a healthy repository by removing large files and cleaning up sensitive data:
+
 ```bash
 # Remove large files
 git-surgeon clean --size-threshold 50MB
@@ -94,6 +107,8 @@ git-surgeon clean --patterns "**/*.zip,**/*.jar"
 ```
 
 #### Author Rewriting
+
+The author rewriting feature uses git-filter-repo to safely update author and committer information across your repository's history:
 
 ```bash
 # Rewrite a single author
@@ -118,18 +133,13 @@ git-surgeon rewrite-authors --mapping-file authors.json --update-committer
 ]
 ```
 
-The author rewriting feature uses `git-filter-repo` under the hood to safely rewrite Git history, updating author (and optionally committer) information across all commits. This is useful for:
-
-- Updating incorrect email addresses
-- Consolidating multiple author identities
-- Fixing typos in author names
-- Updating organizational email addresses
-
 ## 🛡️ Safety Features
+
+Git Surgeon prioritizes the safety of your repository by implementing several protective measures:
 
 ### Automatic Backups
 
-Every destructive operation automatically creates a backup:
+Before performing any destructive operation, Git Surgeon automatically creates a timestamped backup of your repository:
 
 ```bash
 # Operations create timestamped backups
@@ -138,7 +148,7 @@ my_repo_backup_20240125_120130/
 
 ### Dry Run Mode
 
-Preview changes before applying them:
+All operations support a dry-run mode that shows you exactly what would happen without making any changes:
 
 ```bash
 # See what would be removed
@@ -150,16 +160,21 @@ git-surgeon truncate --before 2023-01-01 --dry-run
 
 ### State Validation
 
-Git Surgeon performs multiple safety checks:
+Before performing any operation, Git Surgeon performs comprehensive safety checks:
 
 - Verifies repository state
 - Checks for uncommitted changes
 - Validates branch states
 - Ensures backup creation
+- Validates the integrity of the git repository
+- Detects detached HEAD state
+- Checks for untracked files
 
 ## 🎯 Use Cases
 
 ### Removing Sensitive Data
+
+When sensitive data like API keys or credentials accidentally make it into your repository, Git Surgeon can help remove them completely:
 
 ```bash
 # Remove all .env files
@@ -171,6 +186,8 @@ git-surgeon clean --sensitive-data
 
 ### Repository Maintenance
 
+Keep your repository clean and efficient by removing unnecessary files and optimizing history:
+
 ```bash
 # Remove old logs and temp files
 git-surgeon remove "**/*.log,**/*.tmp"
@@ -181,12 +198,14 @@ git-surgeon clean --size-threshold 100MB
 
 ### History Management
 
+Manage your repository's history to keep it focused and relevant:
+
 ```bash
 # Keep only recent history
 git-surgeon truncate --keep-recent 100
 
 # Remove history before specific date
-git-surgeon truncate --before "6 months ago"
+git-surgeon truncate --before "2023-01-01"
 ```
 
 ## 🔧 Configuration
@@ -206,24 +225,6 @@ Git Surgeon can be configured through command-line options or configuration file
 --branches        Specify branches to process
 ```
 
-### Configuration File
-
-```yaml
-# .git-surgeon.yaml
-backup:
-  enabled: true
-  directory: "/path/to/backups"
-
-cleanup:
-  size_threshold: 50MB
-  sensitive_patterns:
-    - "password"
-    - "secret"
-    - "key"
-    - "token"
-    - "credential"
-```
-
 ## 🤝 Contributing
 
 Yes please! Contributions are welcome:
@@ -235,6 +236,8 @@ Yes please! Contributions are welcome:
 5. Open a Pull Request
 
 ### Development Setup
+
+The project uses Poetry for dependency management and includes several development tools:
 
 ```bash
 # Clone the repository
