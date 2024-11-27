@@ -38,6 +38,7 @@ def validate_repo(repo_path: Path) -> GitRepo:
 @app.command()
 def remove(
     pattern: str = typer.Argument(..., help="File pattern to remove (e.g., '**/.env')"),
+    *,
     repo_path: Optional[Path] = None,
     dry_run: bool = False,
     backup: bool = True,
@@ -88,6 +89,7 @@ def remove(
 
 @app.command()
 def truncate(
+    *,
     before: Optional[str] = None,
     after: Optional[str] = None,
     keep_recent: Optional[int] = None,
@@ -133,6 +135,7 @@ def truncate(
 
 @app.command()
 def clean(
+    *,
     size_threshold: Optional[str] = None,
     patterns: Optional[list[str]] = None,
     sensitive_data: bool = False,
@@ -169,6 +172,7 @@ def clean(
 
 @app.command()
 def rewrite_authors(
+    *,
     mapping_file: Optional[Path] = None,
     old_author: Optional[str] = None,
     new_author: Optional[str] = None,
@@ -188,9 +192,7 @@ def rewrite_authors(
         new_author, "--new", help="New author (format: 'Name <email>')"
     )
     update_committer = typer.Option(
-        update_committer,
-        "--update-committer",
-        help="Also update committer information"
+        update_committer, "--update-committer", help="Also update committer information"
     )
 
     if repo_path is None:
