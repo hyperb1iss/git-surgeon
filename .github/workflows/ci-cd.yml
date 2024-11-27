@@ -21,6 +21,10 @@ jobs:
         run: |
           pip install poetry
           poetry install
+      - name: Configure Git
+        run: |
+          git config --local user.name "CI User"
+          git config --local user.email "ci@example.com"
       - name: Run lint checks
         run: poetry run lint
       - name: Run tests
