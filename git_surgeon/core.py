@@ -33,17 +33,6 @@ class GitRepo:
         except (git.InvalidGitRepositoryError, git.NoSuchPathError) as e:
             raise ValueError(f"Not a git repository: {path}") from e
 
-        # Verify git-filter-repo is available
-        try:
-            subprocess.run(
-                ["git-filter-repo", "--version"], capture_output=True, check=True
-            )
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            console.print(
-                "[yellow]Warning:[/yellow] git-filter-repo not found. "
-                "Some operations may not work correctly."
-            )
-
     def create_backup(self) -> Path:
         """Create a backup of the repository.
 
