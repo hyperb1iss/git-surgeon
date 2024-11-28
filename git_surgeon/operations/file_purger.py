@@ -1,12 +1,13 @@
 """File purging operations for removing files from git history."""
 
-import subprocess
+import fnmatch
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
-from git import Commit
+from git_filter_repo import Blob, Commit, FastExportParser  # type: ignore
 
 from git_surgeon.core import GitRepo
+from git_surgeon.utils.git_filter import run_git_filter
 
 
 class FilePurger:
@@ -15,194 +16,190 @@ class FilePurger:
     def __init__(self, repo: GitRepo, pattern: str):
         self.repo = repo
         self.pattern = pattern
-        self._matches: Optional[list[Path]] = None
-        self._affected_commits: Optional[set[Commit]] = None
+        self._matches: set[Path] = set()
+        self._affected_commits: Optional[set[str]] = None
 
-    def find_matches(self) -> list[Path]:
-        """Find all files matching pattern in repository history."""
-        if self._matches is None:
-            # Use git ls-files to find matches in current state
-            result = subprocess.run(
-                ["git", "ls-files"],
-                cwd=self.repo.path,
-                capture_output=True,
-                text=True,
-                check=True,
-            )
+    @property
+    def affected_commits(self) -> set[str]:
+        """Get the set of commit hashes that will be affected by the purge operation."""
+        if self._affected_commits is None:
+            self._affected_commits = set()
+            matches = self.find_matches()
+            if matches:
+                # Get all commits that modified any of the matched files
+                for match in matches:
+                    rel_path = str(match.relative_to(self.repo.path))
+                    commits = self.repo.repo.git.log(
+                        "--all", "--format=%H", "--", rel_path
+                    ).splitlines()
+                    self._affected_commits.update(commits)
+        return self._affected_commits
 
-            all_files = result.stdout.splitlines()
-            matches = []
+    def find_matches(self) -> set[Path]:
+        """Find all files in the repository that match the pattern."""
+        if not self._matches:
+            result = self.repo.repo.git.ls_files().splitlines()
 
-            # Convert pattern to glob pattern
-            for file in all_files:
-                file_path = Path(self.repo.path) / file
-                if file_path.match(self.pattern):
-                    matches.append(file_path)
+            # Convert ** pattern to fnmatch pattern
+            patterns = self._get_patterns()
 
-            self._matches = matches
+            # Match files against all patterns
+            for file in result:
+                # Normalize path separators
+                file = file.replace("\\", "/")
+                for pattern in patterns:
+                    if fnmatch.fnmatch(file, pattern):
+                        self._matches.add(self.repo.path / file)
+                        break
 
         return self._matches
 
-    @property
-    def affected_commits(self) -> set[Commit]:
-        """Get all commits that would be modified."""
-        if self._affected_commits is None:
-            matches = self.find_matches()
-            commits = set()
-
-            for match in matches:
-                # Get all commits that modified this file
-                rel_path = match.relative_to(self.repo.path)
-                for commit in self.repo.repo.iter_commits(paths=str(rel_path)):
-                    commits.add(commit)
-
-            self._affected_commits = commits
-
-        return self._affected_commits
+    def _get_patterns(self) -> list[str]:
+        """Convert ** pattern to fnmatch patterns."""
+        if "**" in self.pattern and self.pattern.startswith("**/"):
+            # For **/.env, convert to */.env and .env to match both root and nested files
+            return [self.pattern[3:], "*/" + self.pattern[3:]]
+        return [self.pattern]
 
     def calculate_size_impact(self) -> int:
         """Calculate total size of files to be removed."""
-        return sum(match.stat().st_size for match in self.find_matches())
+        total_size = 0
+        for file in self.find_matches():
+            if file.exists():
+                total_size += file.stat().st_size
+        return total_size
+
+    def _get_relative_matches(self) -> set[bytes]:
+        """Get relative paths of matches as bytes."""
+        matches = self.find_matches()
+        return {
+            str(m.relative_to(self.repo.path)).replace("\\", "/").encode()
+            for m in matches
+        }
+
+    def _cleanup_repo(self) -> None:
+        """Clean up repository after filtering."""
+        if not self.repo.repo.bare:
+            self.repo.repo.git.reset("--hard")
+            self.repo.repo.git.clean("-fd")  # Clean up untracked files
+            self.repo.repo.git.reflog("expire", "--expire=now", "--all")
+        self.repo.gc()
+
+    def _handle_branches(self, branches: Optional[list[str]]) -> Optional[str]:
+        """Handle branch filtering.
+
+        Returns:
+            The name of the original branch if it was changed, None otherwise.
+        """
+        if not branches:
+            return None
+
+        original_branch = self.repo.repo.active_branch.name
+        self.repo.repo.git.checkout(branches[0])
+        for branch in branches[1:]:
+            self.repo.repo.git.checkout(branch)
+        return original_branch
+
+    def _find_recent_commits(self, matches: set[Path]) -> list[str]:
+        """Find the most recent commits that modified the matched files."""
+        recent_commits = []
+        for match in matches:
+            rel_path = str(match.relative_to(self.repo.path))
+            commits = self.repo.repo.git.log(
+                "-n", "1", "--format=%H", "--", rel_path
+            ).splitlines()
+            recent_commits.extend(commits)
+        return recent_commits
+
+    def _create_preserve_branch(self, recent_commits: list[str]) -> Optional[str]:
+        """Create a branch to preserve recent changes if needed.
+
+        Returns:
+            The name of the preserve branch if created, None otherwise.
+        """
+        if not recent_commits:
+            return None
+
+        preserve_branch = "preserved-files"
+        self.repo.repo.git.branch(preserve_branch)
+        return preserve_branch
+
+    def _create_callbacks(
+        self,
+        relative_matches: set[bytes],
+        preserve_recent: bool,
+        preserve_branch: Optional[str],
+        recent_commits: list[str],
+    ) -> tuple[Callable[[Blob], None], Callable[[Commit, object], None]]:
+        """Create the blob and commit callbacks for git-filter-repo."""
+
+        def blob_callback(blob: Blob) -> None:
+            """Process each blob to check if it should be removed."""
+            if hasattr(blob, "filename"):
+                # Normalize path separators
+                filename = blob.filename.replace(b"\\", b"/")
+                if filename in relative_matches:
+                    blob.skip()
+
+        def commit_callback(commit: Commit, _metadata: object) -> None:
+            """Process each commit to handle file changes."""
+            # Skip if this is a preserved commit
+            if preserve_recent and preserve_branch and commit.id in recent_commits:
+                return
+
+            # Filter out file changes for skipped blobs and matching paths
+            new_changes = []
+            for change in commit.file_changes:
+                # Normalize path separators
+                filename = change.filename.replace(b"\\", b"/")
+                if filename in relative_matches:
+                    continue
+                if hasattr(change, "blob_id") and change.blob_id is None:
+                    continue
+                new_changes.append(change)
+            commit.file_changes = new_changes
+
+            # Skip empty commits
+            if not commit.file_changes:
+                commit.skip()
+
+        return blob_callback, commit_callback
 
     def execute(
-        self, branches: Optional[list[str]] = None, preserve_recent: bool = False
+        self, *, branches: Optional[list[str]] = None, preserve_recent: bool = False
     ) -> None:
         """Execute the purge operation.
 
         Args:
-            branches: Optional list of branches to process. If None, processes all branches.
-            preserve_recent: If True, preserves files in the most recent commit.
+            branches: Optional list of branches to process. If None, all branches are processed.
+            preserve_recent: If True, preserves recent history.
         """
         matches = self.find_matches()
         if not matches:
             return
 
-        # Get relative paths for all matches
-        rel_paths = [str(match.relative_to(self.repo.path)) for match in matches]
-        paths_arg = " ".join(f'"{path}"' for path in rel_paths)
+        relative_matches = self._get_relative_matches()
+        original_branch = self._handle_branches(branches)
 
-        try:
-            # Ensure we're on a clean state
-            subprocess.run(
-                ["git", "stash", "--include-untracked"],
-                cwd=self.repo.path,
-                check=True,
-                capture_output=True,
-                text=True,
-            )
+        # Handle preserve_recent flag
+        recent_commits = []
+        preserve_branch = None
+        if preserve_recent:
+            recent_commits = self._find_recent_commits(matches)
+            preserve_branch = self._create_preserve_branch(recent_commits)
 
-            # First remove from the index
-            subprocess.run(
-                ["git", "rm", "-rf", "--cached", "--ignore-unmatch", *rel_paths],
-                cwd=self.repo.path,
-                check=True,
-                capture_output=True,
-                text=True,
-            )
+        # Create and run the filter
+        blob_callback, commit_callback = self._create_callbacks(
+            relative_matches, preserve_recent, preserve_branch, recent_commits
+        )
+        parser = FastExportParser(
+            blob_callback=blob_callback, commit_callback=commit_callback
+        )
+        run_git_filter(self.repo.path, parser)
 
-            # Commit the removal
-            subprocess.run(
-                ["git", "commit", "--allow-empty", "-m", "Remove sensitive files"],
-                cwd=self.repo.path,
-                check=True,
-                capture_output=True,
-                text=True,
-            )
+        # Restore original branch if needed
+        if original_branch:
+            self.repo.repo.git.checkout(original_branch)
 
-            # Then filter the branch history
-            filter_cmd = f"git rm -rf --cached --ignore-unmatch {paths_arg}"
-            filter_branch_cmd = [
-                "git",
-                "filter-branch",
-                "--force",
-                "--index-filter",
-                filter_cmd,
-                "--prune-empty",
-                "--tag-name-filter",
-                "cat",
-                "--",
-                "--all",
-            ]
-
-            if preserve_recent:
-                # If preserving recent, only filter commits before HEAD
-                filter_branch_cmd.extend(["HEAD^.."])
-
-            if branches:
-                # If specific branches are specified, only filter those
-                filter_branch_cmd[filter_branch_cmd.index("--all")] = " ".join(branches)
-
-            subprocess.run(
-                filter_branch_cmd,
-                cwd=self.repo.path,
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-
-            # Remove the original refs to allow garbage collection
-            subprocess.run(
-                ["git", "for-each-ref", "--format=%(refname)", "refs/original/"],
-                cwd=self.repo.path,
-                check=True,
-                capture_output=True,
-                text=True,
-            ).stdout.splitlines()
-
-            for ref in subprocess.run(
-                ["git", "for-each-ref", "--format=%(refname)", "refs/original/"],
-                cwd=self.repo.path,
-                check=True,
-                capture_output=True,
-                text=True,
-            ).stdout.splitlines():
-                subprocess.run(
-                    ["git", "update-ref", "-d", ref],
-                    cwd=self.repo.path,
-                    check=True,
-                    capture_output=True,
-                    text=True,
-                )
-
-            # Reset the working directory to match the new HEAD
-            subprocess.run(
-                ["git", "reset", "--hard"],
-                cwd=self.repo.path,
-                check=True,
-                capture_output=True,
-            )
-
-            # Clean up untracked files
-            subprocess.run(
-                ["git", "clean", "-fd"],
-                cwd=self.repo.path,
-                check=True,
-                capture_output=True,
-            )
-
-            # Clean up repository and remove old objects
-            subprocess.run(
-                ["git", "reflog", "expire", "--expire=now", "--all"],
-                cwd=self.repo.path,
-                check=True,
-                capture_output=True,
-            )
-            subprocess.run(
-                ["git", "gc", "--prune=now", "--aggressive"],
-                cwd=self.repo.path,
-                check=True,
-                capture_output=True,
-            )
-
-            # Try to restore stashed changes if any
-            subprocess.run(
-                ["git", "stash", "pop"],
-                cwd=self.repo.path,
-                check=False,  # Don't fail if there was nothing to pop
-                capture_output=True,
-                text=True,
-            )
-
-        except subprocess.CalledProcessError as e:
-            error_msg = f"Git operation failed: {e.stderr}"
-            raise RuntimeError(error_msg) from e
+        # Clean up repository
+        self._cleanup_repo()
