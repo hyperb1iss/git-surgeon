@@ -7,7 +7,7 @@ import sys
 
 
 def run_lint():
-    """Run linting checks on the project using pylint and mypy."""
+    """Run linting checks on the project using pylint, mypy, and ruff."""
     print("Running linting checks...")
 
     pylint_result = subprocess.run(
@@ -18,6 +18,12 @@ def run_lint():
     )
     mypy_result = subprocess.run(
         ["mypy", "git_surgeon"], capture_output=True, text=True, check=False
+    )
+    ruff_result = subprocess.run(
+        ["ruff", "check", "git_surgeon", "tests", "scripts"],
+        capture_output=True,
+        text=True,
+        check=False,
     )
 
     if pylint_result.returncode != 0:
@@ -32,7 +38,17 @@ def run_lint():
     else:
         print("Mypy checks passed.")
 
-    if pylint_result.returncode != 0 or mypy_result.returncode != 0:
+    if ruff_result.returncode != 0:
+        print("Ruff issues found:")
+        print(ruff_result.stdout)
+    else:
+        print("Ruff checks passed.")
+
+    if (
+        pylint_result.returncode != 0
+        or mypy_result.returncode != 0
+        or ruff_result.returncode != 0
+    ):
         sys.exit(1)
 
     print("All linting checks passed!")
