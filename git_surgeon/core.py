@@ -1,7 +1,6 @@
 """Core functionality for git-surgeon operations."""
 
 import shutil
-import subprocess
 from datetime import datetime
 from pathlib import Path
 from typing import Optional

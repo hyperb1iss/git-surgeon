@@ -1,12 +1,12 @@
 """Repository cleanup operations including large file removal and sensitive data cleaning."""
 
 import re
-import subprocess
 from typing import Optional
 
 from git_filter_repo import Blob, Commit, FastExportParser  # type: ignore
 
 from git_surgeon.core import GitRepo
+from git_surgeon.utils.git_filter import run_git_filter
 
 
 class RepoCleanup:
@@ -85,31 +85,7 @@ class RepoCleanup:
 
     def _run_filter_repo(self, parser: FastExportParser) -> None:
         """Run git-filter-repo with the given parser."""
-        # Set up fast-export process
-        export_cmd = ["git", "fast-export", "--all"]
-        import_cmd = ["git", "fast-import", "--force"]
-
-        with subprocess.Popen(
-            export_cmd, cwd=self.repo.path, stdout=subprocess.PIPE
-        ) as export_proc:
-            assert export_proc.stdout is not None  # for mypy
-
-            with subprocess.Popen(
-                import_cmd,
-                cwd=self.repo.path,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-            ) as import_proc:
-                assert import_proc.stdin is not None  # for mypy
-
-                # Run the parser
-                parser.run(export_proc.stdout, import_proc.stdin)
-
-                # Clean up
-                export_proc.stdout.close()
-                import_proc.stdin.close()
-                export_proc.wait()
-                import_proc.wait()
+        run_git_filter(self.repo.path, parser)
 
         # Reset the working directory to match the new HEAD
         if not self.repo.repo.bare:

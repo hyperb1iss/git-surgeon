@@ -1,7 +1,6 @@
 """Module for rewriting git author and committer information in repository history."""
 
 import json
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Union
@@ -9,6 +8,7 @@ from typing import Union
 from git_filter_repo import Commit, FastExportParser  # type: ignore
 
 from git_surgeon.core import GitRepo
+from git_surgeon.utils.git_filter import run_git_filter
 
 
 @dataclass
@@ -96,30 +96,14 @@ class AuthorRewriter:
                     commit.committer_name = new_name
                     commit.committer_email = new_email
 
-        # Run git fast-export and pipe through the parser
-        with subprocess.Popen(
-            ["git", "fast-export", "--all"],
-            stdout=subprocess.PIPE,
-            cwd=self.repo.path,
-        ) as fast_export:
-            # Create output file for fast-import
-            output_path = self.repo.path / "filtered_history"
-            with open(output_path, "wb") as output_stream:
-                parser = FastExportParser(commit_callback=commit_callback)
-                parser.run(fast_export.stdout, output_stream)
+        # Create output file for fast-import
+        output_path = self.repo.path / "filtered_history"
 
-        # Run git fast-import to apply the changes
-        try:
-            subprocess.run(
-                ["git", "fast-import", "--force"],
-                input=output_path.read_bytes(),
-                cwd=self.repo.path,
-                capture_output=True,
-                text=True,
-                check=True,
-            )
-        except subprocess.CalledProcessError as err:
-            raise RuntimeError(f"git-filter-repo failed: {err.stderr}") from err
+        # Create parser with callback
+        parser = FastExportParser(commit_callback=commit_callback)
+
+        # Run the filter operation
+        run_git_filter(self.repo.path, parser, temp_file=output_path)
 
     @staticmethod
     def load_mappings(mapping_file: Path) -> list[AuthorMapping]:
