@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class Settings(BaseModel):
@@ -22,7 +22,11 @@ class Settings(BaseModel):
     selected_branches: list[str] = Field(default_factory=list)
 
     # Size thresholds (in bytes)
-    large_file_threshold: int = 50 * 1024 * 1024  # 50MB
+    large_file_threshold: int = Field(
+        default=50 * 1024 * 1024,  # 50MB
+        gt=0,
+        description="Size threshold in bytes for large files",
+    )
 
     # Patterns for sensitive data
     sensitive_patterns: list[str] = Field(
@@ -31,10 +35,19 @@ class Settings(BaseModel):
             r"secret",
             r"key",
             r"token",
-            r"credential"
+            r"credential",
         ]
     )
 
-    class Config:
-        """Pydantic configuration class."""
-        arbitrary_types_allowed = True
+    model_config = {
+        "arbitrary_types_allowed": True,
+        "validate_assignment": True,
+    }
+
+    @field_validator("backup_dir")
+    @classmethod
+    def validate_backup_dir(cls, v: Optional[Path]) -> Optional[Path]:
+        """Validate backup directory path."""
+        if v is not None and not isinstance(v, Path):
+            raise ValueError("backup_dir must be a Path object")
+        return v

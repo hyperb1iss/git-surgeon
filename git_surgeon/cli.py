@@ -23,6 +23,11 @@ app = typer.Typer(
 console = Console()
 settings = Settings()
 
+# Module-level options
+MAP_OPTION = typer.Option(
+    None, "--map", "-m", help="JSON file containing author mappings"
+)
+
 
 def validate_repo(repo_path: Path) -> GitRepo:
     """Validate and return a GitRepo instance."""
@@ -173,28 +178,21 @@ def clean(
 @app.command()
 def rewrite_authors(
     *,
-    mapping_file: Optional[Path] = None,
-    old_author: Optional[str] = None,
-    new_author: Optional[str] = None,
-    update_committer: bool = False,
+    mapping: Optional[Path] = MAP_OPTION,
+    old: Optional[str] = typer.Option(
+        None, "--old", help="Original author (format: 'Name <email>')"
+    ),
+    new: Optional[str] = typer.Option(
+        None, "--new", help="New author (format: 'Name <email>')"
+    ),
+    update_committer: bool = typer.Option(
+        False, help="Also update committer information"
+    ),
     repo_path: Optional[Path] = None,
     dry_run: bool = False,
     backup: bool = True,
 ) -> None:
     """Rewrite author information across repository history."""
-    mapping_file = typer.Option(
-        mapping_file, "--map", "-m", help="JSON file containing author mappings"
-    )
-    old_author = typer.Option(
-        old_author, "--old", help="Original author (format: 'Name <email>')"
-    )
-    new_author = typer.Option(
-        new_author, "--new", help="New author (format: 'Name <email>')"
-    )
-    update_committer = typer.Option(
-        update_committer, "--update-committer", help="Also update committer information"
-    )
-
     if repo_path is None:
         repo_path = Path.cwd()
 
@@ -202,20 +200,20 @@ def rewrite_authors(
     rewriter = AuthorRewriter(repo)
 
     # Determine the source of mappings
-    if mapping_file:
-        if old_author or new_author:
+    if mapping:
+        if old or new:
             console.print(
                 "[red]Cannot combine mapping file with individual author options[/red]"
             )
             raise typer.Exit(1)
-        author_mappings = AuthorRewriter.load_mappings(mapping_file)
+        author_mappings = AuthorRewriter.load_mappings(mapping)
     else:
-        if not (old_author and new_author):
+        if not (old and new):
             console.print(
                 "[red]Must provide both --old and --new authors or a mapping file[/red]"
             )
             raise typer.Exit(1)
-        author_mappings = [AuthorMapping(old=old_author, new=new_author)]
+        author_mappings = [AuthorMapping(old=old, new=new)]
 
     with console.status("[bold green]Analyzing repository...") as status:
         if dry_run:
