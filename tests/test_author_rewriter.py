@@ -1,5 +1,6 @@
 """Tests for the author rewriter functionality in git-surgeon."""
 
+import io
 import json
 import subprocess
 from pathlib import Path
@@ -11,6 +12,37 @@ from git import Actor
 
 from git_surgeon.core import GitRepo
 from git_surgeon.operations.author_rewriter import AuthorMapping, AuthorRewriter
+
+
+@pytest.fixture
+def fast_export_output():
+    """Sample git fast-export output for testing."""
+    return io.BytesIO(b"""blob
+mark :1
+data 15
+Initial content
+reset refs/heads/main
+commit refs/heads/main
+mark :2
+author Old User <old@example.com> 1732744600 -0800
+committer Git User <git@example.com> 1732744600 -0800
+data 14
+Initial commit
+M 100644 :1 test.txt
+
+blob
+mark :3
+data 15
+Updated content
+commit refs/heads/main
+mark :4
+author Another User <another@example.com> 1732744600 -0800
+committer Git User <git@example.com> 1732744600 -0800
+data 14
+Update content
+from :2
+M 100644 :3 test.txt
+""")
 
 
 @pytest.fixture
@@ -37,20 +69,22 @@ def repo_with_commits(temp_git_repo):
     return repo
 
 
-def test_rewrite_single_author(repo_with_commits, monkeypatch):
+def test_rewrite_single_author(repo_with_commits, fast_export_output, monkeypatch):
     """Test rewriting a single author's information using git-filter-repo."""
     rewriter = AuthorRewriter(repo_with_commits)
 
-    # Mock subprocess.run to avoid actually running git-filter-repo
-    def mock_run(*args, **kwargs):  # pylint: disable=unused-argument
-        class MockResult:
-            """Mock result from subprocess.run."""
-            returncode = 0
-            stderr = ""
-            stdout = ""
+    # Mock subprocess.Popen and subprocess.run
+    def mock_popen(*args, **_):
+        mock = Mock()
+        mock.stdout = fast_export_output
+        mock.__enter__ = Mock(return_value=mock)
+        mock.__exit__ = Mock(return_value=None)
+        return mock if args[0][1] == "fast-export" else Mock(stdout=Mock())
 
-        return MockResult()
+    def mock_run(*_, **__):
+        return Mock(returncode=0)
 
+    monkeypatch.setattr(subprocess, "Popen", mock_popen)
     monkeypatch.setattr(subprocess, "run", mock_run)
 
     rewriter.rewrite_authors(
@@ -61,11 +95,10 @@ def test_rewrite_single_author(repo_with_commits, monkeypatch):
         ]
     )
 
-    # Since we're mocking git-filter-repo, we'll just verify the command would be called
-    # The actual rewriting is tested in integration tests
 
-
-def test_rewrite_from_file(repo_with_commits, tmp_path, monkeypatch):
+def test_rewrite_from_file(
+    repo_with_commits, fast_export_output, tmp_path, monkeypatch
+):
     """Test rewriting authors using a mapping file."""
     mapping_file = tmp_path / "authors.json"
     mapping_data = [
@@ -77,36 +110,51 @@ def test_rewrite_from_file(repo_with_commits, tmp_path, monkeypatch):
     ]
     mapping_file.write_text(json.dumps(mapping_data))
 
-    # Mock subprocess.run
-    def mock_run(*args, **kwargs):  # pylint: disable=unused-argument
-        class MockResult:
-            """Mock result from subprocess.run."""
-            returncode = 0
-            stderr = ""
-            stdout = ""
+    # Mock subprocess.Popen and subprocess.run
+    def mock_popen(*args, **_):
+        mock = Mock()
+        mock.stdout = fast_export_output
+        mock.__enter__ = Mock(return_value=mock)
+        mock.__exit__ = Mock(return_value=None)
+        return mock if args[0][1] == "fast-export" else Mock(stdout=Mock())
 
-        return MockResult()
+    def mock_run(*_, **__):
+        return Mock(returncode=0)
 
+    monkeypatch.setattr(subprocess, "Popen", mock_popen)
     monkeypatch.setattr(subprocess, "run", mock_run)
 
     rewriter = AuthorRewriter(repo_with_commits)
     rewriter.rewrite_authors(mapping_file)
 
 
-def test_git_filter_repo_error(repo_with_commits, monkeypatch):
+def test_git_filter_repo_error(repo_with_commits, fast_export_output, monkeypatch):
     """Test handling of git-filter-repo errors."""
-    def mock_run(*args, **kwargs):
-        raise CalledProcessError(
-            returncode=1,
-            cmd="git-filter-repo",
-            stderr="Some error occurred"
-        )
+
+    def mock_run(*args, **__):
+        if args[0][0] == "git" and args[0][1] == "fast-import":
+            raise CalledProcessError(
+                returncode=1,
+                cmd="git fast-import",
+                stderr="Some error occurred",
+                output="",
+            )
+        return Mock(returncode=0)
+
+    # Create a mock that supports context management
+    mock_popen = Mock()
+    mock_popen.stdout = fast_export_output
+    mock_popen.__enter__ = Mock(return_value=mock_popen)
+    mock_popen.__exit__ = Mock(return_value=None)
 
     monkeypatch.setattr(subprocess, "run", mock_run)
+    monkeypatch.setattr(subprocess, "Popen", Mock(return_value=mock_popen))
 
     rewriter = AuthorRewriter(repo_with_commits)
 
-    with pytest.raises(RuntimeError, match="git-filter-repo failed"):
+    with pytest.raises(
+        RuntimeError, match="git-filter-repo failed: Some error occurred"
+    ):
         rewriter.rewrite_authors(
             [
                 AuthorMapping(
@@ -116,10 +164,19 @@ def test_git_filter_repo_error(repo_with_commits, monkeypatch):
         )
 
 
-def test_update_committer(repo_with_commits, monkeypatch):
+def test_update_committer(repo_with_commits, fast_export_output, monkeypatch):
     """Test updating committer information."""
-    mock_run = Mock()
-    mock_run.return_value = Mock(returncode=0, stderr="", stdout="")
+
+    # Mock subprocess.Popen and subprocess.run
+    def mock_popen(*args, **_):
+        mock = Mock()
+        mock.stdout = fast_export_output
+        mock.__enter__ = Mock(return_value=mock)
+        mock.__exit__ = Mock(return_value=None)
+        return mock if args[0][1] == "fast-export" else Mock(stdout=Mock())
+
+    mock_run = Mock(return_value=Mock(returncode=0))
+    monkeypatch.setattr(subprocess, "Popen", mock_popen)
     monkeypatch.setattr(subprocess, "run", mock_run)
 
     rewriter = AuthorRewriter(repo_with_commits)
@@ -134,13 +191,14 @@ def test_update_committer(repo_with_commits, monkeypatch):
         update_committer=True,
     )
 
-    # Updated to include check=True
+    # Verify git fast-import was called with the right arguments
     mock_run.assert_called_with(
-        ["git-filter-repo", "--mailmap", ANY, "--force"],
+        ["git", "fast-import", "--force"],
+        input=ANY,
         cwd=repo_with_commits.path,
         capture_output=True,
         text=True,
-        check=True
+        check=True,
     )
 
 

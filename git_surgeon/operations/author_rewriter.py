@@ -2,10 +2,11 @@
 
 import json
 import subprocess
-import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Union
+
+from git_filter_repo import Commit, FastExportParser  # type: ignore
 
 from git_surgeon.core import GitRepo
 
@@ -49,12 +50,16 @@ class AuthorRewriter:
         self, mappings: Union[Path, list[AuthorMapping]], update_committer: bool = False
     ) -> None:
         """
-        Rewrite author information in the git history using git-filter-repo.
+        Rewrite author information in the git history using git-filter-repo internals.
 
         Args:
             mappings: Either a Path to a JSON file containing the mappings,
-                     or a list of AuthorMapping objects
+                      or a list of AuthorMapping objects
             update_committer: If True, also update committer information
+
+        Raises:
+            ValueError: If mapping file format is invalid
+            RuntimeError: If git fast-import fails
         """
         if isinstance(mappings, Path):
             try:
@@ -64,37 +69,57 @@ class AuthorRewriter:
             except (json.JSONDecodeError, KeyError) as err:
                 raise ValueError("Invalid mapping file format") from err
 
-        # Create a temporary mailmap file
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".mailmap", delete=False
-        ) as f:
-            for mapping in mappings:
-                new_name, new_email = self._parse_author_string(mapping.new)
-                old_name, old_email = self._parse_author_string(mapping.old)
-                f.write(f"{new_name} <{new_email}> {old_name} <{old_email}>\n")
-            mailmap_path = f.name
+        # Create a mapping dictionary for quick lookup
+        author_map = {
+            self._parse_author_string(mapping.old): self._parse_author_string(
+                mapping.new
+            )
+            for mapping in mappings
+        }
 
-        try:
-            # Run git-filter-repo with the mailmap
-            cmd = ["git-filter-repo", "--mailmap", mailmap_path]
+        def commit_callback(commit: Commit, _aux_info: dict) -> None:
+            # Update author information
+            author_name, author_email = commit.author_name, commit.author_email
+            if (author_name, author_email) in author_map:
+                new_name, new_email = author_map[(author_name, author_email)]
+                commit.author_name = new_name
+                commit.author_email = new_email
+
+            # Optionally update committer information
             if update_committer:
-                cmd.append("--force")
+                committer_name, committer_email = (
+                    commit.committer_name,
+                    commit.committer_email,
+                )
+                if (committer_name, committer_email) in author_map:
+                    new_name, new_email = author_map[(committer_name, committer_email)]
+                    commit.committer_name = new_name
+                    commit.committer_email = new_email
 
+        # Run git fast-export and pipe through the parser
+        with subprocess.Popen(
+            ["git", "fast-export", "--all"],
+            stdout=subprocess.PIPE,
+            cwd=self.repo.path,
+        ) as fast_export:
+            # Create output file for fast-import
+            output_path = self.repo.path / "filtered_history"
+            with open(output_path, "wb") as output_stream:
+                parser = FastExportParser(commit_callback=commit_callback)
+                parser.run(fast_export.stdout, output_stream)
+
+        # Run git fast-import to apply the changes
+        try:
             subprocess.run(
-                cmd,
+                ["git", "fast-import", "--force"],
+                input=output_path.read_bytes(),
                 cwd=self.repo.path,
                 capture_output=True,
                 text=True,
-                check=True,  # Add check=True to raise CalledProcessError if command fails
+                check=True,
             )
-
         except subprocess.CalledProcessError as err:
             raise RuntimeError(f"git-filter-repo failed: {err.stderr}") from err
-        finally:
-            # Clean up the temporary mailmap file
-            Path(mailmap_path).unlink()
-
-        # No need to manually delete branches - git-filter-repo handles this
 
     @staticmethod
     def load_mappings(mapping_file: Path) -> list[AuthorMapping]:

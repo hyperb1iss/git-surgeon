@@ -23,7 +23,7 @@ typer = { extras = ["all"], version = "0.13.1" }
 rich = "^13.7.0"
 gitpython = "^3.1.43"
 pydantic = "^2.5.0"
-git-filter-repo = "^2.38.0"
+git-filter-repo = "2.45.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"
