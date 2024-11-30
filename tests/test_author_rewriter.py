@@ -5,7 +5,7 @@ import json
 import subprocess
 from pathlib import Path
 from subprocess import CalledProcessError
-from unittest.mock import ANY, Mock
+from unittest.mock import ANY, Mock, PropertyMock
 
 import pytest
 from git import Actor
@@ -82,7 +82,9 @@ def test_rewrite_single_author(repo_with_commits, fast_export_output, monkeypatc
         return mock if args[0][1] == "fast-export" else Mock(stdout=Mock())
 
     def mock_run(*_, **__):
-        return Mock(returncode=0)
+        mock = Mock()
+        type(mock).stderr = PropertyMock(return_value=b"")
+        return mock
 
     monkeypatch.setattr(subprocess, "Popen", mock_popen)
     monkeypatch.setattr(subprocess, "run", mock_run)
@@ -119,7 +121,9 @@ def test_rewrite_from_file(
         return mock if args[0][1] == "fast-export" else Mock(stdout=Mock())
 
     def mock_run(*_, **__):
-        return Mock(returncode=0)
+        mock = Mock()
+        type(mock).stderr = PropertyMock(return_value=b"")
+        return mock
 
     monkeypatch.setattr(subprocess, "Popen", mock_popen)
     monkeypatch.setattr(subprocess, "run", mock_run)
@@ -133,12 +137,13 @@ def test_git_filter_repo_error(repo_with_commits, fast_export_output, monkeypatc
 
     def mock_run(*args, **__):
         if args[0][0] == "git" and args[0][1] == "fast-import":
-            raise CalledProcessError(
+            err = CalledProcessError(
                 returncode=1,
                 cmd="git fast-import",
-                stderr="Some error occurred",
-                output="",
+                output=b"",
+                stderr=b"Some error occurred",
             )
+            raise err
         return Mock(returncode=0)
 
     # Create a mock that supports context management
@@ -175,7 +180,10 @@ def test_update_committer(repo_with_commits, fast_export_output, monkeypatch):
         mock.__exit__ = Mock(return_value=None)
         return mock if args[0][1] == "fast-export" else Mock(stdout=Mock())
 
-    mock_run = Mock(return_value=Mock(returncode=0))
+    mock_run = Mock()
+    type(mock_run).stderr = PropertyMock(return_value=b"")
+    mock_run.return_value = mock_run
+
     monkeypatch.setattr(subprocess, "Popen", mock_popen)
     monkeypatch.setattr(subprocess, "run", mock_run)
 
@@ -196,8 +204,8 @@ def test_update_committer(repo_with_commits, fast_export_output, monkeypatch):
         ["git", "fast-import", "--force"],
         input=ANY,
         cwd=repo_with_commits.path,
-        capture_output=True,
-        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         check=True,
     )
 

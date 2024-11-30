@@ -1,6 +1,7 @@
 """Module for rewriting git author and committer information in repository history."""
 
 import json
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Union
@@ -9,6 +10,9 @@ from git_filter_repo import Commit, FastExportParser  # type: ignore
 
 from git_surgeon.core import GitRepo
 from git_surgeon.utils.git_filter import run_git_filter
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -24,6 +28,7 @@ class AuthorRewriter:
 
     def __init__(self, repo: GitRepo):
         self.repo = repo
+        self._changes_made = 0
 
     def _parse_author_string(self, author_string: str) -> tuple[str, str]:
         """Parse an author string into name and email components.
@@ -77,24 +82,48 @@ class AuthorRewriter:
             for mapping in mappings
         }
 
+        logger.info("Author mappings to apply: %s", author_map)
+
         def commit_callback(commit: Commit, _aux_info: dict) -> None:
+            nonlocal author_map
             # Update author information
-            author_name, author_email = commit.author_name, commit.author_email
+            author_name, author_email = (
+                commit.author_name.decode(),
+                commit.author_email.decode(),
+            )
             if (author_name, author_email) in author_map:
                 new_name, new_email = author_map[(author_name, author_email)]
-                commit.author_name = new_name
-                commit.author_email = new_email
+                logger.debug(
+                    "Rewriting author in commit %s: %s <%s> -> %s <%s>",
+                    commit.id,
+                    author_name,
+                    author_email,
+                    new_name,
+                    new_email,
+                )
+                commit.author_name = new_name.encode()
+                commit.author_email = new_email.encode()
+                self._changes_made += 1
 
             # Optionally update committer information
             if update_committer:
                 committer_name, committer_email = (
-                    commit.committer_name,
-                    commit.committer_email,
+                    commit.committer_name.decode(),
+                    commit.committer_email.decode(),
                 )
                 if (committer_name, committer_email) in author_map:
                     new_name, new_email = author_map[(committer_name, committer_email)]
-                    commit.committer_name = new_name
-                    commit.committer_email = new_email
+                    logger.debug(
+                        "Rewriting committer in commit %s: %s <%s> -> %s <%s>",
+                        commit.id,
+                        committer_name,
+                        committer_email,
+                        new_name,
+                        new_email,
+                    )
+                    commit.committer_name = new_name.encode()
+                    commit.committer_email = new_email.encode()
+                    self._changes_made += 1
 
         # Create output file for fast-import
         output_path = self.repo.path / "filtered_history"
@@ -104,6 +133,15 @@ class AuthorRewriter:
 
         # Run the filter operation
         run_git_filter(self.repo.path, parser, temp_file=output_path)
+
+        if self._changes_made == 0:
+            logger.warning(
+                "No changes were made. Check if the author information matches exactly."
+            )
+        else:
+            logger.info(
+                "Successfully processed %d author/committer entries", self._changes_made
+            )
 
     @staticmethod
     def load_mappings(mapping_file: Path) -> list[AuthorMapping]:
