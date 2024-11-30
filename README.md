@@ -1,6 +1,6 @@
-# 🧨 Git Surgeon
+# 🔪 Git Surgeon
 
-> _Because some git operations require surgical precision_ 🔪
+> _Because some git operations require surgical precision_
 
 [![Build Status](https://img.shields.io/github/actions/workflow/status/hyperb1iss/git-surgeon/cicd.yml?branch=main&logo=github&logoColor=white)](https://github.com/hyperb1iss/git-surgeon/actions/workflows/cicd.yml)
 [![PyPI version](https://img.shields.io/pypi/v/git-surgeon.svg?logo=python&logoColor=white)](https://pypi.org/project/git-surgeon/)
@@ -22,7 +22,7 @@ Git Surgeon is a powerful command-line tool for safely performing complex and po
 
 ## 🚀 Installation
 
-Git Surgeon requires Python 3.9 or higher and depends on the git-filter-repo tool for some operations. You can install it using either pip or Poetry.
+Git Surgeon requires Python 3.10 or higher and depends on the git-filter-repo tool for some operations. You can install it using either pip or Poetry.
 
 ### Using pip
 
